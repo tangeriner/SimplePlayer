@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rl_control_content"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_alignParentBottom="true"
+    android:onClick="onClick"
+    android:visibility="invisible">
+
+    <RelativeLayout
+        android:id="@+id/rl_control_top"
+        android:layout_width="match_parent"
+        android:layout_height="45dp"
+        android:layout_marginTop="22dp">
+
+        <ImageButton
+            android:id="@+id/ib_back"
+            style="@style/button"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:contentDescription="@string/app_name"
+            android:src="@mipmap/back"/>
+
+        <TextView
+            android:id="@+id/tv_name"
+            android:layout_width="wrap_content"
+            android:layout_height="45dp"
+            android:layout_toEndOf="@+id/ib_back"
+            android:layout_toLeftOf="@+id/ib_mini_play"
+            android:layout_toRightOf="@+id/ib_back"
+            android:layout_toStartOf="@+id/ib_mini_play"
+            android:ellipsize="middle"
+            android:gravity="start|center_vertical"
+            android:maxLines="1"
+            android:padding="5dp"
+            android:textColor="@color/white"
+            android:textSize="15sp"
+            android:textStyle="bold"/>
+
+        <ImageButton
+            android:id="@+id/ib_mini_play"
+            style="@style/button"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:layout_marginLeft="@dimen/button_portrait_lr_margin"
+            android:layout_marginStart="@dimen/button_portrait_lr_margin"
+            android:layout_toLeftOf="@+id/ib_setting"
+            android:layout_toStartOf="@+id/ib_setting"
+            android:contentDescription="@string/app_name"
+            android:padding="7dp"
+            android:src="@mipmap/mini_player"/>
+
+        <ImageButton
+            android:id="@+id/ib_setting"
+            style="@style/button"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentRight="true"
+            android:layout_marginEnd="@dimen/button_portrait_lr_margin"
+            android:layout_marginLeft="@dimen/button_portrait_lr_margin"
+            android:layout_marginRight="@dimen/button_portrait_lr_margin"
+            android:layout_marginStart="@dimen/button_portrait_lr_margin"
+            android:contentDescription="@string/app_name"
+            android:src="@mipmap/setting"/>
+    </RelativeLayout>
+
+    <LinearLayout
+        android:id="@+id/rl_control_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="45dp"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:paddingEnd="10dp"
+        android:paddingLeft="10dp"
+        android:paddingRight="10dp"
+        android:paddingStart="10dp">
+
+        <ImageButton
+            android:id="@+id/ib_play"
+            style="@style/button"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:contentDescription="@string/app_name"
+            android:src="@mipmap/pause"/>
+
+        <ImageButton
+            android:id="@+id/ib_play_next"
+            style="@style/button"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:contentDescription="@string/app_name"
+            android:src="@mipmap/play_next"/>
+
+        <TextView
+            android:id="@+id/tv_start_time"
+            style="@style/text_time"
+            android:layout_width="60dp"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical|end"/>
+
+        <SeekBar
+            android:id="@+id/sb_play"
+            android:layout_width="0dp"
+            android:layout_height="45dp"
+            android:layout_weight="1"
+            android:max="100"
+            android:maxHeight="3dp"
+            android:minHeight="3dp"
+            android:padding="10dp"
+            android:progressDrawable="@drawable/drawable_seek_bar_bg"
+            android:thumb="@mipmap/seek_bar_thumb"/>
+
+        <TextView
+            android:id="@+id/tv_end_time"
+            style="@style/text_time"
+            android:layout_width="60dp"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical|start"/>
+
+        <ImageButton
+            android:id="@+id/ib_rotate"
+            style="@style/button"
+            android:layout_width="45dp"
+            android:layout_height="45dp"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/drawable_rotate"/>
+    </LinearLayout>
+
+</RelativeLayout>

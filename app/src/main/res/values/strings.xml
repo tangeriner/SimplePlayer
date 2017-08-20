@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Simple_Video</string>
+    <item type="id" name="img_tag"/>
+</resources>
