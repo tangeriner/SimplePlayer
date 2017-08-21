@@ -15,5 +15,9 @@ public class ExampleUnitTest {
         b^=a;
         a^=b;
         System.out.println(a + " " + b);
+        System.out.println(0x10000000);
+        System.out.println(Integer.toBinaryString(Integer.MAX_VALUE));
+        System.out.println(Long.toBinaryString(Long.MAX_VALUE));
+        System.out.println(Integer.MAX_VALUE - 0x11111111);
     }
 }

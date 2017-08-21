@@ -16,6 +16,7 @@ import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -36,13 +37,12 @@ import com.sunny.player.utils.StatusBarUtil;
 import com.sunny.player.utils.TimeUtil;
 
 import java.io.File;
-import java.io.IOException;
 
 public class PlayerActivity extends Activity {
     private static final String TAG = "PlayerActivity";
     private static final int PROGRESS_VALUE = 100;
     private String mURL;
-    private MediaPlayer mPlayer;
+    private Player mPlayer;
 
     private TextureView mSurfaceView;
     private SeekBar mSeekBar;
@@ -83,7 +83,7 @@ public class PlayerActivity extends Activity {
                 }
             }
             if (mSeekBar != null && mPlayer != null) {
-                if (mPlayer.getDuration() != 0) {//暂时这么处理
+                if (mPlayer.getDuration() != 0) {
                     int progress = mPlayer.getCurrentPosition() * PROGRESS_VALUE / mPlayer.getDuration();
                     if (progress != mSeekBar.getProgress() && !mSeekBar.isPressed()) {
                         mSeekBar.setProgress(progress);
@@ -125,7 +125,7 @@ public class PlayerActivity extends Activity {
     }
 
     private void initPlayer() {
-        mPlayer = new MediaPlayer();
+        mPlayer = new SPlayer();
         mPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             @Override
             public void onPrepared(MediaPlayer mp) {
@@ -170,11 +170,7 @@ public class PlayerActivity extends Activity {
                 Log.i(TAG, "onSeekComplete");
             }
         });
-        try {
-            mPlayer.setDataSource(mURL);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        mPlayer.setDataSource(mURL);
         mPlayer.prepareAsync();
     }
 
@@ -283,6 +279,9 @@ public class PlayerActivity extends Activity {
     private void fitVideo() {
         int videoW = mPlayer.getVideoWidth();
         int videoH = mPlayer.getVideoHeight();
+        if (videoH == 0 || videoW == 0) {
+            return;
+        }
         double videoRatio = videoW * 1.0 / videoH;
         /*初始化为视频适配合适的场景*/
         if (mIsFirstFitVideo) {
@@ -384,7 +383,6 @@ public class PlayerActivity extends Activity {
     }
 
     private void releasePlayer() {
-        mPlayer.stop();
         mPlayer.release();
     }
 

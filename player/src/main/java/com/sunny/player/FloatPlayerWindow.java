@@ -6,7 +6,6 @@ import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.PixelFormat;
 import android.graphics.SurfaceTexture;
-import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -38,7 +37,7 @@ public class FloatPlayerWindow {
     private TextureView mSurface;
     private ImageButton mIbPlay, mIbClose;
 
-    private MediaPlayer mMediaPlay;
+    private Player mPlay;
     private int mWidth, mHeight;
     private OnClickListener mOnClickListener;
 
@@ -51,10 +50,10 @@ public class FloatPlayerWindow {
         return new Builder(context);
     }
 
-    private FloatPlayerWindow(Context mContext, MediaPlayer mMediaPlay, int mWidth, int mHeight, OnClickListener
+    private FloatPlayerWindow(Context mContext, Player mPlay, int mWidth, int mHeight, OnClickListener
             mOnClickListener) {
         this.mContext = mContext;
-        this.mMediaPlay = mMediaPlay;
+        this.mPlay = mPlay;
         this.mWidth = mWidth;
         this.mHeight = mHeight;
         this.mOnClickListener = mOnClickListener;
@@ -93,7 +92,7 @@ public class FloatPlayerWindow {
             public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
                 Log.i(TAG, "onSurfaceTextureAvailable: size=" + width + "x" + height + " destroy=" + mIsDestroy);
                 if (!mIsDestroy) {
-                    mMediaPlay.setSurface(new Surface(surface));
+                    mPlay.setSurface(new Surface(surface));
                 }
             }
 
@@ -185,12 +184,12 @@ public class FloatPlayerWindow {
             @Override
             public void onClick(View v) {
                 ImageButton playButton = (ImageButton) v;
-                if (mMediaPlay.isPlaying()) {
+                if (mPlay.isPlaying()) {
                     playButton.setImageResource(R.mipmap.play);
-                    mMediaPlay.pause();
+                    mPlay.pause();
                 } else {
                     playButton.setImageResource(R.mipmap.pause);
-                    mMediaPlay.start();
+                    mPlay.start();
                 }
                 if (mOnClickListener != null) {
                     mOnClickListener.onClick(v, TYPE_PLAY);
@@ -240,7 +239,7 @@ public class FloatPlayerWindow {
     }
 
     public void destroy() {
-        mMediaPlay.setSurface(null);
+        mPlay.setSurface(null);
         mFloatLayout.setVisibility(View.GONE);
         mWindowManager.removeView(mFloatLayout);
         mIsDestroy = true;
@@ -248,7 +247,7 @@ public class FloatPlayerWindow {
 
     public static class Builder {
         private Context mContext;
-        private MediaPlayer mPlayer;
+        private Player mPlayer;
         private int mWidth, mHeight;
 
         private OnClickListener mOnClickListener;
@@ -257,7 +256,7 @@ public class FloatPlayerWindow {
             this.mContext = mContext;
         }
 
-        public Builder player(MediaPlayer mPlayer) {
+        public Builder player(Player mPlayer) {
             this.mPlayer = mPlayer;
             return this;
         }
