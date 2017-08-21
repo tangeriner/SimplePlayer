@@ -16,8 +16,8 @@ import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.os.SystemClock;
 import android.provider.Settings;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -25,7 +25,6 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowManager;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -299,9 +298,10 @@ public class PlayerActivity extends Activity {
                 }
             }
         }
-        WindowManager wm = this.getWindowManager();
-        int screenW = wm.getDefaultDisplay().getWidth();
-        int screenH = wm.getDefaultDisplay().getHeight();
+        DisplayMetrics dm = new DisplayMetrics();
+        this.getWindowManager().getDefaultDisplay().getMetrics(dm);
+        int screenW = dm.widthPixels;
+        int screenH = dm.heightPixels;
         Log.i(TAG, "fitVideo: screen=" + screenW + "x" + screenH + " Video=" + videoW + "x" + videoH);
         double screenRatio = screenW * 1.0 / screenH;
         if (videoRatio / screenRatio > 1) {
@@ -319,8 +319,9 @@ public class PlayerActivity extends Activity {
     private void initMiniPlayer() {
         int w, h;
         float ratio = mPlayer.getVideoWidth() * 1.0f / mPlayer.getVideoHeight();
-        WindowManager wm = this.getWindowManager();
-        final int temp = Math.min(wm.getDefaultDisplay().getWidth(), wm.getDefaultDisplay().getHeight());
+        DisplayMetrics dm = new DisplayMetrics();
+        this.getWindowManager().getDefaultDisplay().getMetrics(dm);
+        final int temp = Math.min(dm.widthPixels, dm.heightPixels);
         if (ratio > 1) {
             w = (int) (temp * 0.65);
             h = (int) (w / ratio);
