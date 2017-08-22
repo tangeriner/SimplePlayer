@@ -33,19 +33,20 @@ import android.widget.TextView;
 
 import com.sunny.player.utils.ScreenRotateUtil;
 import com.sunny.player.utils.StatusBarUtil;
+import com.sunny.player.utils.StringUtil;
 import com.sunny.player.utils.TimeUtil;
 
 import java.io.File;
 
 public class PlayerActivity extends Activity {
     private static final String TAG = "PlayerActivity";
-    private static final int PROGRESS_VALUE = 100;
+    private static final int SEEKBAR_MAX = Integer.MAX_VALUE;
     private String mURL;
     private Player mPlayer;
 
     private TextureView mSurfaceView;
     private SeekBar mSeekBar;
-    private TextView mTvStartTime, mTvEndTime, mTvName;
+    private TextView mTvStartTime, mTvEndTime, mTvName, mTvGestureDisplay;
     private ImageButton mIbRotate, mIbPlay;
     private RelativeLayout mLayoutControl, mLayoutControlTop;
     private LinearLayout mLayoutControlBottom;
@@ -83,7 +84,8 @@ public class PlayerActivity extends Activity {
             }
             if (mSeekBar != null && mPlayer != null) {
                 if (mPlayer.getDuration() != 0) {
-                    int progress = mPlayer.getCurrentPosition() * PROGRESS_VALUE / mPlayer.getDuration();
+                    float p = mPlayer.getCurrentPosition() * 1.0f / mPlayer.getDuration();
+                    int progress = (int) (p * SEEKBAR_MAX);
                     if (progress != mSeekBar.getProgress() && !mSeekBar.isPressed()) {
                         mSeekBar.setProgress(progress);
                     }
@@ -138,14 +140,9 @@ public class PlayerActivity extends Activity {
         mPlayer.setOnBufferingUpdateListener(new MediaPlayer.OnBufferingUpdateListener() {
             @Override
             public void onBufferingUpdate(MediaPlayer mp, int percent) {
-                mSeekBar.setSecondaryProgress(percent);
-                Log.i(TAG, "onBufferingUpdate percent=" + percent * PROGRESS_VALUE / 100);
-            }
-        });
-        mPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-            @Override
-            public void onCompletion(MediaPlayer mp) {
-                Log.i(TAG, "onCompletion");
+                float p = percent * 1.0f / 100;
+                mSeekBar.setSecondaryProgress((int) (p * SEEKBAR_MAX));
+                Log.i(TAG, "onBufferingUpdate percent=" + percent);
             }
         });
         mPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
@@ -156,25 +153,13 @@ public class PlayerActivity extends Activity {
                 return false;
             }
         });
-        mPlayer.setOnInfoListener(new MediaPlayer.OnInfoListener() {
-            @Override
-            public boolean onInfo(MediaPlayer mp, int what, int extra) {
-                Log.i(TAG, "onInfo what=" + what + " extra=" + extra);
-                return false;
-            }
-        });
-        mPlayer.setOnSeekCompleteListener(new MediaPlayer.OnSeekCompleteListener() {
-            @Override
-            public void onSeekComplete(MediaPlayer mp) {
-                Log.i(TAG, "onSeekComplete");
-            }
-        });
         mPlayer.setDataSource(mURL);
         mPlayer.prepareAsync();
     }
 
     private void initView() {
         mViewRoot = (ViewGroup) ((ViewGroup) findViewById(android.R.id.content)).getChildAt(0);//获取ViewRoot方式之一
+        mTvGestureDisplay = (TextView) findViewById(R.id.tv_gesture_display);
         mProgressDialog = new ProgressDialog(this);
         mProgressDialog.show();
         initSurface();
@@ -233,14 +218,16 @@ public class PlayerActivity extends Activity {
 
     private void initSeekBar() {
         if (mSeekBar != null) {
-            mSeekBar.setOnSeekBarChangeListener(null);
+            mSeekBar.setOnSeekBarChangeListener(null);//移除上一个进度条的监听
         }
         mSeekBar = (SeekBar) findViewById(R.id.sb_play);
+        mSeekBar.setMax(SEEKBAR_MAX);
         mSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-                Log.i(TAG, "onStopTrackingTouch: ");
-                mPlayer.seekTo(mPlayer.getDuration() * seekBar.getProgress() / PROGRESS_VALUE);
+                float percent = seekBar.getProgress() * 1.0f / SEEKBAR_MAX;
+                int position = (int) (mPlayer.getDuration() * percent);
+                mPlayer.seekTo(position);
             }
 
             @Override
@@ -357,15 +344,22 @@ public class PlayerActivity extends Activity {
         isOpenFloatPlayer = true;
     }
 
+    /**
+     * 事件接收
+     *
+     * @param view ,
+     */
     public void onClick(View view) {
         int id = view.getId();
         if (id == R.id.ib_back) {
             releasePlayer();
             PlayerActivity.this.finish();
-        } else if (id == R.id.rl_control_content) {
-            hideControlContent();
         } else if (id == mViewRoot.getId()) {
-            showControlContent();
+            if (mLayoutControl.getVisibility() == View.VISIBLE) {
+                hideControlContent();
+            } else {
+                showControlContent();
+            }
         } else if (id == R.id.ib_play) {
             ImageButton ibPlay = (ImageButton) view;
             if (mPlayer.isPlaying()) {
@@ -381,6 +375,93 @@ public class PlayerActivity extends Activity {
             initMiniPlayer();
             moveTaskToBack(true);
         }
+    }
+
+    private long mEventInterval;
+    private float[] mMovePosition = new float[2];
+    private float[] mLastMovePosition = new float[2];
+    private int mEventType = -1;
+    private boolean mIsSeekOutValue;
+    private static final int SEEK = 1;
+    private static final int VOLUME = 2;
+    private static final int BRIGHTNESS = 3;
+    private int mCurrentPosition = 0;
+    private static final int PIXEL_VALUE = 100;
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        float x = event.getX();
+        float y = event.getY();
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                mEventInterval = System.currentTimeMillis();
+                mMovePosition[0] = x;
+                mMovePosition[1] = y;
+                mEventType = -1;
+                break;
+            case MotionEvent.ACTION_MOVE:
+                float absX = Math.abs(x - mMovePosition[0]);
+                float absY = Math.abs(y - mMovePosition[1]);
+                if (mEventType == -1 && absX > 5 && absY > 5) {
+                    mTvGestureDisplay.setVisibility(View.VISIBLE);
+                    if (absX >= absY) {//进度手势
+                        mEventType = SEEK;
+                        mCurrentPosition = mPlayer.getCurrentPosition();
+                    } else {
+                        DisplayMetrics dm = new DisplayMetrics();
+                        this.getWindowManager().getDefaultDisplay().getMetrics(dm);
+                        if (x < dm.widthPixels / 2) {//音量手势
+                            mEventType = VOLUME;//TODO
+                        } else {//亮度手势
+                            mEventType = BRIGHTNESS;//TODO
+                        }
+                    }
+                }
+                if (mEventType == SEEK) {
+                    if (mIsSeekOutValue) {
+                        mMovePosition[0] = mLastMovePosition[0];
+                        mMovePosition[1] = mLastMovePosition[1];
+                    }
+                    int diff = (int) (x - mMovePosition[0]) * PIXEL_VALUE;
+                    int value = mCurrentPosition + diff;
+                    mIsSeekOutValue = true;
+                    if (value < 0) {//移动到返回外立即重置初始位置
+                        mCurrentPosition = 0;
+                    } else if (value > mPlayer.getDuration()) {//移动到返回外立即重置初始位置
+                        mCurrentPosition = mPlayer.getDuration();
+                    } else {
+                        mIsSeekOutValue = false;
+                        String afterMove = TimeUtil.convert(value);
+                        String sDiff = (diff < 0 ? "- " : "+ ") + TimeUtil.convert(Math.abs(diff));
+                        String text = StringUtil.stick("move to ", afterMove, " / ", sDiff);
+                        mTvGestureDisplay.setText(text);
+                    }
+                } else if (mEventType == VOLUME) {
+                    //TODO
+                } else if (mEventType == BRIGHTNESS) {
+                    //TODO
+                }
+                mLastMovePosition[0] = x;
+                mLastMovePosition[1] = y;
+                break;
+            case MotionEvent.ACTION_UP:
+                float diffX = x - mMovePosition[0];
+                float diffY = y - mMovePosition[1];
+                mTvGestureDisplay.setVisibility(View.INVISIBLE);
+                if (mEventType == SEEK) {
+                    int msec = mCurrentPosition + (int) diffX * PIXEL_VALUE;
+                    Log.i(TAG, "onTouchEvent: c=" + msec + " d=" + mPlayer.getDuration());
+                    mPlayer.seekTo(msec);
+                } else if (mEventType == VOLUME) {
+                } else if (mEventType == BRIGHTNESS) {
+                } else if (System.currentTimeMillis() - mEventInterval < 500) {
+                    onClick(mViewRoot);//模拟点击事件发送
+                } else {
+                    return false;
+                }
+                return true;
+        }
+        return super.onTouchEvent(event);
     }
 
     private void releasePlayer() {
@@ -486,4 +567,5 @@ public class PlayerActivity extends Activity {
             mControlAnimatorSet.cancel();
         }
     }
+
 }

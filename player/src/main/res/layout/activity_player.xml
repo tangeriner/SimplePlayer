@@ -5,12 +5,23 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/black"
-    android:onClick="onClick"
     tools:context="com.sunny.player.PlayerActivity">
 
     <TextureView
         android:id="@+id/ttv_player"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
+
+    <TextView
+        android:id="@+id/tv_gesture_display"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:padding="15dp"
+        android:background="@drawable/drawable_gesture_display"
+        android:gravity="center"
+        android:textColor="@color/white"
+        android:textSize="20sp"
+        android:visibility="invisible"/>
 </RelativeLayout>
 
