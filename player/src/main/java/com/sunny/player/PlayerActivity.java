@@ -12,20 +12,23 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.database.ContentObserver;
 import android.graphics.SurfaceTexture;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.Message;
 import android.provider.Settings;
+import android.support.v4.view.GestureDetectorCompat;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -62,6 +65,9 @@ public class PlayerActivity extends Activity {
     private AnimatorSet mControlAnimatorSet;
 
     private ContentObserver mRotateObserver;
+
+    private AudioManager mAudioManager;
+    private int mMaxVolume;//最大音量
 
     private int mUpdateTimes = 0;
 
@@ -111,6 +117,8 @@ public class PlayerActivity extends Activity {
         initPlayer();
         initView();
         initRotateListener();
+        mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        mMaxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
     }
 
     /**
@@ -159,40 +167,14 @@ public class PlayerActivity extends Activity {
         mPlayer.prepareAsync();
     }
 
+    private GestureDetectorCompat mDetectorCompat;
+
     private void initView() {
         mViewRoot = (ViewGroup) ((ViewGroup) findViewById(android.R.id.content)).getChildAt(0);//获取ViewRoot方式之一
-        mViewRoot.setOnClickListener(new View.OnClickListener() {
-            private long mClickCut;
-            private Handler mHandler = new Handler(Looper.myLooper()) {
-                @Override
-                public void handleMessage(Message msg) {
-                    if (mControlView.getVisibility() == View.VISIBLE) {
-                        hideControlContent();
-                    } else {
-                        showControlContent();
-                    }
-                    super.handleMessage(msg);
-                }
-            };
-
-            @Override
-            public void onClick(final View v) {
-                long systemCut = System.currentTimeMillis();
-                if (systemCut - mClickCut > 300) {
-                    Message m = new Message();
-                    m.obj = v;
-                    m.what = 0;
-                    mHandler.sendEmptyMessageDelayed(0, 300);
-                } else {
-                    mHandler.removeMessages(0);
-                    togglePlayOrPause();
-                }
-                mClickCut = systemCut;
-            }
-        });
         mTvGestureDisplay = (TextView) findViewById(R.id.tv_gesture_display);
         mProgressDialog = new ProgressDialog(this);
         mProgressDialog.show();
+        initGestureDetector();
         initSurface();
         initControlContent();
     }
@@ -401,7 +383,6 @@ public class PlayerActivity extends Activity {
     public void onClick(View view) {
         int id = view.getId();
         if (id == R.id.ib_back) {
-            releasePlayer();
             PlayerActivity.this.finish();
         } else if (id == R.id.ib_play) {
             togglePlayOrPause();
@@ -413,38 +394,36 @@ public class PlayerActivity extends Activity {
         }
     }
 
-    private float[] mMovePosition = new float[2];
-    private float[] mLastMovePosition = new float[2];
-    private int mEventType = -1;
-    private boolean mIsSeekOutValue;
     private static final int SEEK = 1;
     private static final int VOLUME = 2;
     private static final int BRIGHTNESS = 3;
-    private int mCurrentPosition = 0;
-    private static final int PIXEL_VALUE = 100;
+    private static final int SEEK_STEP = 300;
+    private int mEventType = -1;
+    private int mCurrentPosition;
+    private int mStartPosition;
 
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        float x = event.getX();
-        float y = event.getY();
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                mMovePosition[0] = x;
-                mMovePosition[1] = y;
+    private void initGestureDetector() {
+        mDetectorCompat = new GestureDetectorCompat(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onDown(MotionEvent e) {
                 mEventType = -1;
-                break;
-            case MotionEvent.ACTION_MOVE:
-                float absX = Math.abs(x - mMovePosition[0]);
-                float absY = Math.abs(y - mMovePosition[1]);
-                if (mEventType == -1 && absX > 5 && absY > 5) {
+                mCurrentPosition = mStartPosition = mPlayer.getCurrentPosition();
+                return super.onDown(e);
+            }
+
+            @Override
+            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                float absX = Math.abs(distanceX);
+                float absY = Math.abs(distanceY);
+                if (mEventType == -1 && (absX > 5 || absY > 5)) {
                     mTvGestureDisplay.setVisibility(View.VISIBLE);
                     if (absX >= absY) {//进度手势
                         mEventType = SEEK;
                         mCurrentPosition = mPlayer.getCurrentPosition();
                     } else {
                         DisplayMetrics dm = new DisplayMetrics();
-                        this.getWindowManager().getDefaultDisplay().getMetrics(dm);
-                        if (x < dm.widthPixels / 2) {//音量手势
+                        getWindowManager().getDefaultDisplay().getMetrics(dm);
+                        if (e1.getX() < dm.widthPixels / 2) {//音量手势
                             mEventType = VOLUME;//TODO
                         } else {//亮度手势
                             mEventType = BRIGHTNESS;//TODO
@@ -452,52 +431,80 @@ public class PlayerActivity extends Activity {
                     }
                 }
                 if (mEventType == SEEK) {
-                    if (mIsSeekOutValue) {
-                        mMovePosition[0] = mLastMovePosition[0];
-                        mMovePosition[1] = mLastMovePosition[1];
-                    }
-                    int diff = (int) (x - mMovePosition[0]) * PIXEL_VALUE;
-                    int value = mCurrentPosition + diff;
-                    mIsSeekOutValue = true;
-                    if (value < 0) {//移动到返回外立即重置初始位置
+                    mCurrentPosition += ~(int) distanceX * SEEK_STEP;
+                    if (mCurrentPosition < 0) {//强制移动到最开始
                         mCurrentPosition = 0;
-                    } else if (value > mPlayer.getDuration()) {//移动到返回外立即重置初始位置
+                    } else if (mCurrentPosition > mPlayer.getDuration()) {//强制移动到最后
                         mCurrentPosition = mPlayer.getDuration();
-                    } else {
-                        mIsSeekOutValue = false;
-                        String afterMove = TimeUtil.convert(value);
-                        String sDiff = (diff < 0 ? "- " : "+ ") + TimeUtil.convert(Math.abs(diff));
-                        String text = StringUtil.stick("move to ", afterMove, " / ", sDiff);
-                        mTvGestureDisplay.setText(text);
                     }
+                    int movePosition = mCurrentPosition - mStartPosition;
+                    String afterMove = TimeUtil.convert(mCurrentPosition);
+                    String text = StringUtil.stick("移动到 ", afterMove, " / ", (movePosition < 0 ? "- " : "+ "),
+                            TimeUtil.convert(Math.abs(movePosition)));
+                    mTvGestureDisplay.setText(text);
                 } else if (mEventType == VOLUME) {
-                    //TODO
+                    int volume = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+                    if (distanceY > 0 && volume < mMaxVolume) {
+                        ++volume;
+                    } else if (distanceY < 0 && volume > 0) {
+                        --volume;
+                    }
+                    mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0);
+                    String text = "音量 " + volume;
+                    mTvGestureDisplay.setText(text);
                 } else if (mEventType == BRIGHTNESS) {
-                    //TODO
+                    float l = getWindow().getAttributes().screenBrightness;
+                    if (l < 0) {//自动亮度调节默认值为-1
+                        l = 0;
+                    }
+                    int light = (int) (l * 255);
+                    if (distanceY > 0 && light < 255) {
+                        light += 5;
+                    } else if (distanceY < 0 && light > 0) {
+                        light -= 5;
+                    }
+                    WindowManager.LayoutParams lp = getWindow().getAttributes();
+                    lp.screenBrightness = light / 255f;
+                    getWindow().setAttributes(lp);
+                    String text = "亮度 " + light;
+                    mTvGestureDisplay.setText(text);
                 }
-                mLastMovePosition[0] = x;
-                mLastMovePosition[1] = y;
-                break;
-            case MotionEvent.ACTION_UP:
-                float diffX = x - mMovePosition[0];
-                float diffY = y - mMovePosition[1];
-                mTvGestureDisplay.setVisibility(View.INVISIBLE);
-                if (mEventType == SEEK) {
-                    int msec = mCurrentPosition + (int) diffX * PIXEL_VALUE;
-                    Log.i(TAG, "onTouchEvent: c=" + msec + " d=" + mPlayer.getDuration());
-                    mPlayer.seekTo(msec);
-                } else if (mEventType == VOLUME) {
-                } else if (mEventType == BRIGHTNESS) {
+                return super.onScroll(e1, e2, distanceX, distanceY);
+            }
+
+            @Override
+            public boolean onDoubleTap(MotionEvent e) {
+                togglePlayOrPause();
+                return super.onDoubleTap(e);
+            }
+
+            @Override
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                if (mControlView.getVisibility() == View.VISIBLE) {
+                    hideControlContent();
                 } else {
-                    return false;
+                    showControlContent();
                 }
-                return true;
-        }
-        return super.onTouchEvent(event);
+                return super.onSingleTapConfirmed(e);
+            }
+        });
     }
 
-    private void releasePlayer() {
-        mPlayer.release();
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        mDetectorCompat.onTouchEvent(event);
+        if (event.getAction() == MotionEvent.ACTION_UP) {
+            mTvGestureDisplay.setVisibility(View.INVISIBLE);
+            if (mEventType == SEEK) {
+                int msec = mCurrentPosition;
+                Log.i(TAG, "onTouchEvent: c=" + msec + " d=" + mPlayer.getDuration());
+                mPlayer.seekTo(msec);
+            } else if (mEventType != VOLUME && mEventType != BRIGHTNESS) {
+                return super.onTouchEvent(event);
+            }
+            return true;
+        }
+        return super.onTouchEvent(event);
     }
 
     /**
@@ -556,8 +563,8 @@ public class PlayerActivity extends Activity {
     protected void onDestroy() {
         Log.i(TAG, "onDestroy");
         getContentResolver().unregisterContentObserver(mRotateObserver);
-        releasePlayer();
         setUpdateHandlerAlive(false);
+        mPlayer.release();
         super.onDestroy();
     }
 
