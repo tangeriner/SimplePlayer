@@ -15,6 +15,7 @@ import android.graphics.SurfaceTexture;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
@@ -37,6 +38,8 @@ import com.sunny.player.utils.StringUtil;
 import com.sunny.player.utils.TimeUtil;
 
 import java.io.File;
+
+import static com.sunny.player.FloatPlayerWindow.TYPE_WINDOW_DOUBLE;
 
 public class PlayerActivity extends Activity {
     private static final String TAG = "PlayerActivity";
@@ -133,8 +136,7 @@ public class PlayerActivity extends Activity {
                 Log.i(TAG, "onPrepared");
                 fitVideo();
                 mProgressDialog.dismiss();
-                mPlayer.start();
-                mIbPlay.setImageResource(R.mipmap.pause);
+                playVideo();
             }
         });
         mPlayer.setOnBufferingUpdateListener(new MediaPlayer.OnBufferingUpdateListener() {
@@ -159,6 +161,35 @@ public class PlayerActivity extends Activity {
 
     private void initView() {
         mViewRoot = (ViewGroup) ((ViewGroup) findViewById(android.R.id.content)).getChildAt(0);//获取ViewRoot方式之一
+        mViewRoot.setOnClickListener(new View.OnClickListener() {
+            private long mClickCut;
+            private Handler mHandler = new Handler(Looper.myLooper()) {
+                @Override
+                public void handleMessage(Message msg) {
+                    if (mControlView.getVisibility() == View.VISIBLE) {
+                        hideControlContent();
+                    } else {
+                        showControlContent();
+                    }
+                    super.handleMessage(msg);
+                }
+            };
+
+            @Override
+            public void onClick(final View v) {
+                long systemCut = System.currentTimeMillis();
+                if (systemCut - mClickCut > 300) {
+                    Message m = new Message();
+                    m.obj = v;
+                    m.what = 0;
+                    mHandler.sendEmptyMessageDelayed(0, 300);
+                } else {
+                    mHandler.removeMessages(0);
+                    togglePlayOrPause();
+                }
+                mClickCut = systemCut;
+            }
+        });
         mTvGestureDisplay = (TextView) findViewById(R.id.tv_gesture_display);
         mProgressDialog = new ProgressDialog(this);
         mProgressDialog.show();
@@ -329,7 +360,7 @@ public class PlayerActivity extends Activity {
                             case FloatPlayerWindow.TYPE_CLOSE:
                                 PlayerActivity.this.finish();
                                 break;
-                            case FloatPlayerWindow.TYPE_WINDOW_DOUBLE:
+                            case TYPE_WINDOW_DOUBLE:
                                 mFloatPlayerWindow.destroy();
                                 mFloatPlayerWindow = null;
                                 ((ActivityManager) getSystemService(Context.ACTIVITY_SERVICE))
@@ -344,6 +375,24 @@ public class PlayerActivity extends Activity {
         isOpenFloatPlayer = true;
     }
 
+    private void togglePlayOrPause() {
+        if (mPlayer.isPlaying()) {
+            pauseVideo();
+        } else {
+            playVideo();
+        }
+    }
+
+    private void playVideo() {
+        mPlayer.start();
+        mIbPlay.setImageResource(R.mipmap.pause);
+    }
+
+    private void pauseVideo() {
+        mPlayer.pause();
+        mIbPlay.setImageResource(R.mipmap.play);
+    }
+
     /**
      * 事件接收
      *
@@ -354,21 +403,8 @@ public class PlayerActivity extends Activity {
         if (id == R.id.ib_back) {
             releasePlayer();
             PlayerActivity.this.finish();
-        } else if (id == mViewRoot.getId()) {
-            if (mLayoutControl.getVisibility() == View.VISIBLE) {
-                hideControlContent();
-            } else {
-                showControlContent();
-            }
         } else if (id == R.id.ib_play) {
-            ImageButton ibPlay = (ImageButton) view;
-            if (mPlayer.isPlaying()) {
-                mPlayer.pause();
-                ibPlay.setImageResource(R.mipmap.play);
-            } else {
-                mPlayer.start();
-                ibPlay.setImageResource(R.mipmap.pause);
-            }
+            togglePlayOrPause();
         } else if (id == R.id.ib_rotate) {
             ScreenRotateUtil.toggle(this);
         } else if (id == R.id.ib_mini_play) {
@@ -377,7 +413,6 @@ public class PlayerActivity extends Activity {
         }
     }
 
-    private long mEventInterval;
     private float[] mMovePosition = new float[2];
     private float[] mLastMovePosition = new float[2];
     private int mEventType = -1;
@@ -394,7 +429,6 @@ public class PlayerActivity extends Activity {
         float y = event.getY();
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                mEventInterval = System.currentTimeMillis();
                 mMovePosition[0] = x;
                 mMovePosition[1] = y;
                 mEventType = -1;
@@ -454,8 +488,6 @@ public class PlayerActivity extends Activity {
                     mPlayer.seekTo(msec);
                 } else if (mEventType == VOLUME) {
                 } else if (mEventType == BRIGHTNESS) {
-                } else if (System.currentTimeMillis() - mEventInterval < 500) {
-                    onClick(mViewRoot);//模拟点击事件发送
                 } else {
                     return false;
                 }
