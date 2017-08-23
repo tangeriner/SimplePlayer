@@ -1,10 +1,7 @@
 # SimplePlayer
-播放器练手
 
 简单效果
 
-![手势](https://github.com/wanqiwanqi/Simple_Video/raw/master/doc/手势.gif)
+![手势](https://user-images.githubusercontent.com/15060042/29615544-e527ed26-8840-11e7-83d4-7786de8e02c2.gif)
 
-
-
-![小窗口](https://github.com/wanqiwanqi/Simple_Video/raw/master/doc/小窗口.gif)
+![小窗口](https://user-images.githubusercontent.com/15060042/29615738-9ff4c19c-8841-11e7-89fc-8b4fee699613.gif)
